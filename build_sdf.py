@@ -3,16 +3,15 @@ import pdb
 import joblib
 import numpy as np
 from lib.models import build_body_model
-from pydrake.all import (
-    StartMeshcat,
-    Meshcat,
-    RigidTransform,
-    Rgba,
-    Cylinder,
-    AngleAxis,
-    RotationMatrix,
-    RollPitchYaw,
-    )
+
+from pydrake.geometry import StartMeshcat, Meshcat
+
+from pydrake.math import RigidTransform, RotationMatrix, RollPitchYaw
+
+from pydrake.geometry import Rgba, Cylinder
+
+from pydrake.common.eigen_geometry import AngleAxis
+
 import re
 import xml.etree.ElementTree as ET
 from pydrake.visualization._model_visualizer import (
