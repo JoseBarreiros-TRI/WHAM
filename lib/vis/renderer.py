@@ -1,6 +1,7 @@
 import cv2
 import torch
 import numpy as np
+import pdb
 
 from pytorch3d.renderer import (
     PerspectiveCameras,
@@ -37,14 +38,14 @@ def overlay_image_onto_background(image, mask, bbox, background):
 
 def update_intrinsics_from_bbox(K_org, bbox):
     device, dtype = K_org.device, K_org.dtype
-    
+
     K = torch.zeros((K_org.shape[0], 4, 4)
     ).to(device=device, dtype=dtype)
     K[:, :3, :3] = K_org.clone()
     K[:, 2, 2] = 0
     K[:, 2, -1] = 1
     K[:, -1, 2] = 1
-    
+
     image_sizes = []
     for idx, bbox in enumerate(bbox):
         left, upper, right, lower = bbox
@@ -93,7 +94,7 @@ def compute_bbox_from_points(X, img_w, img_h, scaleFactor=1.2):
 
     bbox = torch.stack((new_left.detach(), new_top.detach(),
                         new_right.detach(), new_bottom.detach())).int().float().T
-    
+
     return bbox
 
 
@@ -164,8 +165,8 @@ class Renderer():
         self.bboxes = torch.tensor([[0, 0, self.width, self.height]]).float()
         self.K_full, self.image_sizes = update_intrinsics_from_bbox(self.K, self.bboxes)
         self.cameras = self.create_camera()
-        
-        
+
+
     def set_ground(self, length, center_x, center_z):
         device = self.device
         v, f, vc, fc = map(torch.from_numpy, checkerboard_geometry(length=length, c1=center_x, c2=center_z, up="y"))
@@ -205,18 +206,19 @@ class Renderer():
         self.create_renderer()
 
     def render_mesh(self, vertices, background, colors=[0.8, 0.8, 0.8]):
+        # pdb.set_trace()
         self.update_bbox(vertices[::50], scale=1.2)
         vertices = vertices.unsqueeze(0)
-        
+
         if colors[0] > 1: colors = [c / 255. for c in colors]
         verts_features = torch.tensor(colors).reshape(1, 1, 3).to(device=vertices.device, dtype=vertices.dtype)
         verts_features = verts_features.repeat(1, vertices.shape[1], 1)
         textures = TexturesVertex(verts_features=verts_features)
-        
+
         mesh = Meshes(verts=vertices,
                       faces=self.faces,
                       textures=textures,)
-        
+
         materials = Materials(
             device=self.device,
             specular_color=(colors, ),
@@ -233,15 +235,15 @@ class Renderer():
         image = overlay_image_onto_background(image, mask, self.bboxes, background.copy())
         self.reset_bbox()
         return image
-    
-    
+
+
     def render_with_ground(self, verts, faces, colors, cameras, lights):
         """
         :param verts (B, V, 3)
         :param faces (F, 3)
         :param colors (B, 3)
         """
-        
+
         # (B, V, 3), (B, F, 3), (B, V, 3)
         verts, faces, colors = prep_shared_geometry(verts, faces, colors)
         # (V, 3), (F, 3), (V, 3)
@@ -255,13 +257,13 @@ class Renderer():
             device=self.device,
             shininess=0
         )
-        
+
         results = self.renderer(mesh, cameras=cameras, lights=lights, materials=materials)
         image = (results[0, ..., :3].cpu().numpy() * 255).astype(np.uint8)
-            
+
         return image
-    
-    
+
+
 def prep_shared_geometry(verts, faces, colors):
     """
     :param verts (B, V, 3)
@@ -289,24 +291,24 @@ def create_meshes(verts, faces, colors):
 def get_global_cameras(verts, device, distance=5, position=(-5.0, 5.0, 0.0)):
     positions = torch.tensor([position]).repeat(len(verts), 1)
     targets = verts.mean(1)
-    
+
     directions = targets - positions
     directions = directions / torch.norm(directions, dim=-1).unsqueeze(-1) * distance
     positions = targets - directions
-    
+
     rotation = look_at_rotation(positions, targets, ).mT
     translation = -(rotation @ positions.unsqueeze(-1)).squeeze(-1)
-    
+
     lights = PointLights(device=device, location=[position])
     return rotation, translation, lights
 
 
 def _get_global_cameras(verts, device, min_distance=3, chunk_size=100):
-    
+
     # split into smaller chunks to visualize
     start_idxs = list(range(0, len(verts), chunk_size))
     end_idxs = [min(start_idx + chunk_size, len(verts)) for start_idx in start_idxs]
-    
+
     Rs, Ts = [], []
     for start_idx, end_idx in zip(start_idxs, end_idxs):
         vert = verts[start_idx:end_idx].clone()

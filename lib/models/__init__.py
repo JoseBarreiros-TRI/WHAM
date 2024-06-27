@@ -5,7 +5,7 @@ from loguru import logger
 
 from configs import constants as _C
 from .smpl import SMPL
-
+import pdb
 
 def build_body_model(device, batch_size=1, gender='neutral', **kwargs):
     sys.stdout = open(os.devnull, 'w')
@@ -20,13 +20,13 @@ def build_body_model(device, batch_size=1, gender='neutral', **kwargs):
 
 def build_network(cfg, smpl):
     from .wham import Network
-    
+
     with open(cfg.MODEL_CONFIG, 'r') as f:
         model_config = yaml.safe_load(f)
     model_config.update({'d_feat': _C.IMG_FEAT_DIM[cfg.MODEL.BACKBONE]})
-    
+
     network = Network(smpl, **model_config).to(cfg.DEVICE)
-    
+
     # Load Checkpoint
     if os.path.isfile(cfg.TRAIN.CHECKPOINT):
         checkpoint = torch.load(cfg.TRAIN.CHECKPOINT)
@@ -36,5 +36,5 @@ def build_network(cfg, smpl):
         logger.info(f"=> loaded checkpoint '{cfg.TRAIN.CHECKPOINT}' ")
     else:
         logger.info(f"=> Warning! no checkpoint found at '{cfg.TRAIN.CHECKPOINT}'.")
-        
+
     return network
